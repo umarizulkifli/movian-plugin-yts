@@ -17,14 +17,21 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 var page = require('showtime/page');
 var service = require('showtime/service');
 var settings = require('showtime/settings');
 var http = require('showtime/http');
-
+var string = require('native/string');
 var plugin = JSON.parse(Plugin.manifest);
 var logo = Plugin.path + plugin.icon;
+
+RichText = function(x) {
+    this.str = x.toString();
+}
+
+RichText.prototype.toRichString = function(x) {
+    return this.str;
+}
 
 var blue = '6699CC', orange = 'FFA500', red = 'EE0000', green = '008B45';
 
@@ -92,7 +99,7 @@ function browseItems(page, query, count) {
             args[i] = unescape(query[i]);
 
         try {
-            var c = showtime.JSONDecode(http.request(service.baseUrl + '/api/v2/list_movies.json', {
+            var c = JSON.parse(http.request(service.baseUrl + '/api/v2/list_movies.json', {
                 args: args
             }));
         } catch(err) {
@@ -242,7 +249,7 @@ new page.Route(plugin.id + ":list:(.*)", function(page, query) {
 
     // Search IMDB ID by title
     function getIMDBid(title) {
-        var resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(showtime.entityDecode(unescape(title))).toString()).toString();
+        var resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(string.entityDecode(unescape(title))).toString()).toString();
         var imdbid = resp.match(/<a href="\/title\/(tt\d+)\//);
         if (imdbid) return imdbid[1];
         return imdbid;
@@ -250,13 +257,13 @@ new page.Route(plugin.id + ":list:(.*)", function(page, query) {
 
 function addMovieItem(page, mov) {
     var item = page.appendItem(plugin.id + ':movie:' + mov.id, "video", {
-        title: new showtime.RichText(mov.title + ' ' + coloredStr(concatEntity(mov.torrents, 'quality'), orange)),
+        title: new RichText(mov.title + ' ' + coloredStr(concatEntity(mov.torrents, 'quality'), orange)),
         icon: mov.medium_cover_image,
         year: +mov.year,
         rating: mov.rating * 10,
         duration: +mov.runtime,
         genre: concat(mov.genres),
-        description: new showtime.RichText(coloredStr('Seeds: ', orange) + coloredStr(concatEntity(mov.torrents, 'seeds'), green) +
+        description: new RichText(coloredStr('Seeds: ', orange) + coloredStr(concatEntity(mov.torrents, 'seeds'), green) +
             coloredStr('\nPeers: ', orange) + coloredStr(concatEntity(mov.torrents, 'peers'), red) + ' ' +
             coloredStr('\nUploaded: ', orange) + concatEntity(mov.torrents, 'date_uploaded') +
             coloredStr('\nSize: ', orange) + concatEntity(mov.torrents, 'size') +
@@ -275,7 +282,7 @@ function addMovieItem(page, mov) {
 
 new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
     page.loading = true;
-    var json = showtime.JSONDecode(http.request(service.baseUrl + '/api/v2/movie_details.json?movie_id=' + id + '&with_images=true&with_cast=true'));
+    var json = JSON.parse(http.request(service.baseUrl + '/api/v2/movie_details.json?movie_id=' + id + '&with_images=true&with_cast=true'));
     setPageHeader(page, json.data.title);
     if (page.metadata.background && json.data.background_image)
         page.metadata.background = json.data.background_image;
@@ -286,7 +293,7 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
             link = service.baseUrl.replace('/api/', '') + link[1];
         else
             link = json.movie.torrents[i].url;
-        var vparams = "videoparams:" + showtime.JSONEncode({
+        var vparams = "videoparams:" + JSON.stringify({
             title: json.data.movie.title,
             canonicalUrl: plugin.id + ':movie:' + id + ':' + json.data.movie.torrents[i].quality,
             imdbid: json.data.movie.imdb_code, //getIMDBid(json.MovieTitle),
@@ -297,13 +304,13 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
         });
 
         page.appendItem(vparams, "video", {
-            title: new showtime.RichText(coloredStr(json.data.movie.torrents[i].quality, orange) + ' ' + json.data.movie.title),
+            title: new RichText(coloredStr(json.data.movie.torrents[i].quality, orange) + ' ' + json.data.movie.title),
             year: +json.data.movie.year,
             duration: json.data.movie.runtime * 60,
             rating: +json.data.movie.rating * 10,
             icon: json.data.movie.medium_cover_image,
             genre: concat(json.data.movie.genres),
-            description: new showtime.RichText(coloredStr('Seeds: ', orange) + coloredStr(json.data.movie.torrents[i].seeds, green) +
+            description: new RichText(coloredStr('Seeds: ', orange) + coloredStr(json.data.movie.torrents[i].seeds, green) +
             coloredStr(' Peers: ', orange) + coloredStr(json.data.movie.torrents[i].peers, red) + ' ' +
                 (json.data.movie.like_count ? coloredStr('Like Count: ', orange) + json.data.movie.like_count : '') +
             coloredStr('\nLanguage: ', orange) + json.data.movie.language +
@@ -361,7 +368,7 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
 
     // Suggestions
     try {
-        json = showtime.JSONDecode(http.request(service.baseUrl + '/api/v2/movie_suggestions.json?movie_id=' + id));
+        json = JSON.parse(http.request(service.baseUrl + '/api/v2/movie_suggestions.json?movie_id=' + id));
         var first = true;
         for (var i in json.data.movie_suggestions) {
             if (first) {
@@ -376,7 +383,7 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
 
     // Comments
     try {
-        json = showtime.JSONDecode(http.request(service.baseUrl + '/api/v2/movie_comments.json?movie_id=' + id));
+        json = JSON.parse(http.request(service.baseUrl + '/api/v2/movie_comments.json?movie_id=' + id));
         first = true;
         for (var i in json.data.comments) {
             if (first) {
@@ -386,9 +393,9 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
                 first = false;
             };
             page.appendPassiveItem('video', '', {
-                title: new showtime.RichText(coloredStr(json.data.comments[i].username, orange) + ' (' + json.data.comments[i].date_added + ')'),
+                title: new RichText(coloredStr(json.data.comments[i].username, orange) + ' (' + json.data.comments[i].date_added + ')'),
                 icon: json.data.comments[i].medium_user_avatar_image,
-                description: new showtime.RichText(json.data.comments[i].comment_text +
+                description: new RichText(json.data.comments[i].comment_text +
                     coloredStr('\nLike Count: ', orange) + json.data.comments[i].like_count)
             });
         }
