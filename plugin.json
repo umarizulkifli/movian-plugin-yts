@@ -1,10 +1,10 @@
 {
 	"description": "<p>YTS – Here you will be able to browse and watch movies in excellent DVD, 720p, 1080p and 3D quality, all at the smallest file size<p>For additional info, visit <a href=\"http://yts.to\">http://yts.to</a>",
-	"author": "lprot", 
+	"author": "lprot",
 	"homepage": "http://github.com/lprot/movian-plugin-yts",
 	"title": "YTS",
 	"synopsis": "YTS – Here you will be able to browse and watch movies in excellent DVD, 720p, 1080p and 3D quality, all at the smallest file size",
-	"version": "0.4.10",
+	"version": "0.4.11",
         "file": "yts.js",
 	"showtimeVersion": "4.8",
 	"type": "ecmascript",

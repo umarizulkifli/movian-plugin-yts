@@ -62,7 +62,7 @@ settings.globalSettings(plugin.id, plugin.title, logo, plugin.synopsis);
 settings.createBool('enableMetadata', 'Enable metadata fetching', false, function(v) {
     service.enableMetadata = v;
 });
-settings.createString('baseURL', "Base URL without '/' at the end", 'https://yts.ag', function(v) {
+settings.createString('baseURL', "Base URL without '/' at the end", 'https://yts.am', function(v) {
     service.baseUrl = v;
 });
 
@@ -109,7 +109,7 @@ function browseItems(page, query, count) {
 
         page.loading = false;
         if (offset == 1 && page.metadata && c.data.movie_count)
-            page.metadata.title += ' (' + c.data.movie_count + ')';
+            page.metadata.title;
         for (var i in c.data.movies) {
             addMovieItem(page, c.data.movies[i]);
             if (count && page.entries > count) return offset = false;
@@ -235,6 +235,9 @@ function processStartPage(page) {
 
 new page.Route(plugin.id + ":start", function(page) {
     setPageHeader(page, plugin.synopsis);
+    page.appendItem(plugin.id + ":search:", 'search', {
+        title: 'Search at ' + service.baseUrl
+    });
     addOptions(page);
     processStartPage(page);
 });
@@ -246,14 +249,6 @@ new page.Route(plugin.id + ":list:(.*)", function(page, query) {
     });
     page.loading = false;
 });
-
-    // Search IMDB ID by title
-    function getIMDBid(title) {
-        var resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(string.entityDecode(unescape(title))).toString()).toString();
-        var imdbid = resp.match(/<a href="\/title\/(tt\d+)\//);
-        if (imdbid) return imdbid[1];
-        return imdbid;
-    };
 
 function addMovieItem(page, mov) {
     var item = page.appendItem(plugin.id + ':movie:' + mov.id, "video", {
@@ -283,10 +278,11 @@ function addMovieItem(page, mov) {
 new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
     page.loading = true;
     var json = JSON.parse(http.request(service.baseUrl + '/api/v2/movie_details.json?movie_id=' + id + '&with_images=true&with_cast=true'));
-    setPageHeader(page, json.data.title);
-    if (page.metadata.background && json.data.background_image)
-        page.metadata.background = json.data.background_image;
-    //page.metadata.backgroundAlpha = 0.3;
+    setPageHeader(page, json.data.movie.title_long);
+    if (page.metadata.background && json.data.movie.background_image) {
+        page.metadata.background = json.data.movie.background_image;
+        page.metadata.backgroundAlpha = 0.3;
+    }
     for (var i in json.data.movie.torrents) {
         var link = json.data.movie.torrents[i].url.match(/(\/torrent\/download(.*))/);
         if (link)
@@ -296,7 +292,7 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
         var vparams = "videoparams:" + JSON.stringify({
             title: json.data.movie.title,
             canonicalUrl: plugin.id + ':movie:' + id + ':' + json.data.movie.torrents[i].quality,
-            imdbid: json.data.movie.imdb_code, //getIMDBid(json.MovieTitle),
+            imdbid: json.data.movie.imdb_code,
             no_fs_scan: true,
             sources: [{
                 url: 'torrent:video:' + link
@@ -310,21 +306,23 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
             rating: +json.data.movie.rating * 10,
             icon: json.data.movie.medium_cover_image,
             genre: concat(json.data.movie.genres),
-            description: new RichText(coloredStr('Seeds: ', orange) + coloredStr(json.data.movie.torrents[i].seeds, green) +
+            backdrops: [{url: json.data.movie.large_screenshot_image1},{url: json.data.movie.large_screenshot_image2},{url: json.data.movie.large_screenshot_image3}],
+            tagline: new RichText(coloredStr('Seeds: ', orange) + coloredStr(json.data.movie.torrents[i].seeds, green) +
             coloredStr(' Peers: ', orange) + coloredStr(json.data.movie.torrents[i].peers, red) + ' ' +
-                (json.data.movie.like_count ? coloredStr('Like Count: ', orange) + json.data.movie.like_count : '') +
-            coloredStr('\nLanguage: ', orange) + json.data.movie.language +
-                (json.data.movie.mpa_rating ? coloredStr(' MPA rating: ', orange) + json.data.movie.mpa_rating : '') +
-            coloredStr('\nDate Uploaded: ', orange) + json.data.movie.torrents[i].date_uploaded +
-                (json.data.movie.download_count ? coloredStr(' Download Count: ', orange) + json.data.movie.download_count : '') +
-                (json.data.movie.torrents[i].resolution ? coloredStr('\nResolution: ', orange) + json.data.movie.torrents[i].resolution + 'x' + json.data.movie.torrents[i].framerate + 'fps' : '') +
-            coloredStr(' Size: ', orange) + json.data.movie.torrents[i].size +
-                (json.data.movie.description_full ? coloredStr('<br>Description: ', orange) + json.data.movie.description_full : ''))
+                (json.data.movie.like_count ? coloredStr('Likes: ', orange) + json.data.movie.like_count : '') +
+                (json.data.movie.download_count ? coloredStr(' Downloads: ', orange) + json.data.movie.download_count : '') +
+                (json.data.movie.mpa_rating ? coloredStr(' MPA rating: ', orange) + json.data.movie.mpa_rating : '')),
+            description:  new RichText(coloredStr('Language: ', orange) + json.data.movie.language +
+                coloredStr(' Added: ', orange) + json.data.movie.torrents[i].date_uploaded +
+                (json.data.movie.torrents[i].resolution ? coloredStr('<br>Resolution: ', orange) + json.data.movie.torrents[i].resolution + 'x' + json.data.movie.torrents[i].framerate + 'fps' : '') +
+                coloredStr(' Size: ', orange) + json.data.movie.torrents[i].size +
+                (json.data.movie.description_full ? '<br>' + json.data.movie.description_full : ''))
         });
     }
     if (json.data.movie.yt_trailer_code)
         page.appendItem('youtube:video:'+escape(json.data.movie.yt_trailer_code), "video", {
-            title: 'Trailer'
+            title: 'Trailer',
+            icon: json.data.movie.medium_cover_image
         });
     if (json.data.movie.large_cover_image)
         page.appendItem(json.data.movie.large_cover_image, "image", {
@@ -342,14 +340,14 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
         page.appendItem(json.data.movie.large_screenshot_image3, "image", {
             title: 'Screenshot3'
         });
-    if (json.data.movie.actors) {
+    if (json.data.movie.cast) {
         page.appendItem("", "separator", {
             title: 'Actors:'
         });
-        for (var i in json.data.movie.actors) {
-            page.appendItem(plugin.id + ':list:' + escape(json.data.actors[i].name), "video", {
-                title: json.data.actors[i].name + ' as ' + json.data.actors[i].character_name,
-                icon: json.data.actors[i].medium_image
+        for (var i in json.data.movie.cast) {
+            page.appendPassiveItem('video', '', {
+                title: json.data.movie.cast[i].name + ' as ' + json.data.movie.cast[i].character_name,
+                icon: json.data.movie.cast[i].url_small_image
             });
         }
     }
@@ -370,14 +368,14 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
     try {
         json = JSON.parse(http.request(service.baseUrl + '/api/v2/movie_suggestions.json?movie_id=' + id));
         var first = true;
-        for (var i in json.data.movie_suggestions) {
+        for (var i in json.data.movies) {
             if (first) {
                 page.appendItem("", "separator", {
                     title: 'Suggestions:'
                 });
                 first = false;
             };
-            addMovieItem(page, json.data.movie_suggestions[i]);
+            addMovieItem(page, json.data.movies[i]);
         }
     } catch(err) {}
 
@@ -401,6 +399,13 @@ new page.Route(plugin.id + ":movie:(.*)", function(page, id) {
         }
     } catch(err) {}
     page.loading = false;
+});
+
+new page.Route(plugin.id + ":search:(.*)", function(page, query) {
+    setPageHeader(page, plugin.title);
+    browseItems(page, {
+        query_term: query
+    });
 });
 
 page.Searcher(plugin.title, logo, function(page, query) {
