@@ -62,7 +62,7 @@ settings.globalSettings(plugin.id, plugin.title, logo, plugin.synopsis);
 settings.createBool('enableMetadata', 'Enable metadata fetching', false, function(v) {
     service.enableMetadata = v;
 });
-settings.createString('baseURL', "Base URL without '/' at the end", 'https://yts.am', function(v) {
+settings.createString('baseURL', "Base URL without '/' at the end", 'https://yts.lt', function(v) {
     service.baseUrl = v;
 });
 
